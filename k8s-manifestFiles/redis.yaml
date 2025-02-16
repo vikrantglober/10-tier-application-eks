@@ -1,10 +1,10 @@
-apiVersion: v1
+apiVersion: apps/v1   # Changed from v1 to apps/v1
 kind: Deployment
 metadata:
   name: redis
   namespace: webapps
 spec:
-  replicas: 1  # Adjust this value based on your requirements
+  replicas: 1  
   selector:
     matchLabels:
       app: redis
@@ -15,12 +15,12 @@ spec:
     spec:
       containers:
       - name: redis
-        image: redis:5.0.4  # Use the desired Redis version
+        image: redis:5.0.4
         ports:
         - containerPort: 6379
         volumeMounts:
         - name: redis-data
-          mountPath: /data  # Path where Redis will store its data
+          mountPath: /data
         resources:
           limits:
             memory: "256Mi"
@@ -30,16 +30,15 @@ spec:
             cpu: "70m"
       volumes:
       - name: redis-data
-        emptyDir: {}  # Use an emptyDir for temporary storage; consider using a PVC for persistence
-
+        emptyDir: {}
 ---
-apiVersion: v1
+apiVersion: v1    # This is correct for Service
 kind: Service
 metadata:
   name: redis
   namespace: webapps
 spec:
-  type: ClusterIP  # Use ClusterIP for internal access; change to LoadBalancer if external access is needed
+  type: ClusterIP
   ports:
     - port: 6379
       targetPort: 6379
@@ -47,4 +46,3 @@ spec:
       name: redis-port
   selector:
     app: redis
-
