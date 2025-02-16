@@ -85,36 +85,40 @@ pipeline {
             steps {
                 withKubeConfig([credentialsId: 'k8-token']) {
                     sh '''
-                        # Apply namespace first
-                        echo "Creating namespace..."
-                        kubectl apply -f k8s-manifestFiles/namespace.yaml
+                        # Deploy Redis first
+                        echo "Deploying Redis..."
+                        kubectl apply -f k8s-manifestFiles/redis.yaml -n webapps
                         
-                        # Wait for namespace to be active
-                        kubectl wait --for=condition=Active namespace/microservices --timeout=30s
+                        # Deploy core services
+                        echo "Deploying core services..."
+                        kubectl apply -f k8s-manifestFiles/adservice.yaml -n webapps
+                        kubectl apply -f k8s-manifestFiles/cartservice.yaml -n webapps
+                        kubectl apply -f k8s-manifestFiles/checkoutservice.yaml -n webapps
+                        kubectl apply -f k8s-manifestFiles/currencyservice.yaml -n webapps
+                        kubectl apply -f k8s-manifestFiles/emailservice.yaml -n webapps
+                        kubectl apply -f k8s-manifestFiles/paymentservice.yaml -n webapps
+                        kubectl apply -f k8s-manifestFiles/productcatalogservice.yaml -n webapps
+                        kubectl apply -f k8s-manifestFiles/recommendationservice.yaml -n webapps
+                        kubectl apply -f k8s-manifestFiles/shippingservice.yaml -n webapps
                         
-                        # Apply deployments
-                        echo "Applying deployments..."
-                        kubectl apply -R -f k8s-manifestFiles/deployments/
-                        
-                        # Apply services
-                        echo "Applying services..."
-                        kubectl apply -R -f k8s-manifestFiles/services/
+                        # Deploy frontend and loadgenerator last
+                        echo "Deploying frontend and loadgenerator..."
+                        kubectl apply -f k8s-manifestFiles/frontend.yaml -n webapps
+                        kubectl apply -f k8s-manifestFiles/loadgenerator.yaml -n webapps
                         
                         # Wait for deployments to be ready
                         echo "Waiting for deployments to be ready..."
-                        kubectl wait --for=condition=available --timeout=300s -n microservices deployment --all
+                        kubectl wait --for=condition=available --timeout=300s -n webapps deployment --all
                         
                         # Show deployment status
                         echo "Deployment Status:"
-                        kubectl get deployments -n microservices
+                        kubectl get deployments -n webapps
                         
-                        # Show pods status
                         echo "Pod Status:"
-                        kubectl get pods -n microservices
+                        kubectl get pods -n webapps
                         
-                        # Show services
                         echo "Service Status:"
-                        kubectl get svc -n microservices
+                        kubectl get svc -n webapps
                     '''
                 }
             }
