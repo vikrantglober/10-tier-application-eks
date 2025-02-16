@@ -22,6 +22,15 @@ pipeline {
             }
         }
 
+        stage('Clean Docker Resources') {
+            steps {
+                sh '''
+                    docker system prune -a -f
+                    docker volume prune -f
+                '''
+            }
+        }
+
         stage('Build and Push to ECR') {
             steps {
                 script {
@@ -45,18 +54,25 @@ pipeline {
                         }
                     }
 
-                    // Build and push each service with correct paths
-                    buildAndPush('adservice', 'adservice')
-                    buildAndPush('cartservice', 'cartservice/src')
-                    buildAndPush('checkoutservice', 'checkoutservice')
-                    buildAndPush('currencyservice', 'currencyservice')
-                    buildAndPush('emailservice', 'emailservice')
-                    buildAndPush('frontend', 'frontend')
-                    buildAndPush('loadgenerator', 'loadgenerator')
-                    buildAndPush('paymentservice', 'paymentservice')
-                    buildAndPush('productcatalogservice', 'productcatalogservice')
-                    buildAndPush('recommendationservice', 'recommendationservice')
-                    buildAndPush('shippingservice', 'shippingservice')
+                    // List of services to build
+                    def services = [
+                        [name: 'adservice', path: 'adservice'],
+                        [name: 'cartservice', path: 'cartservice/src'],
+                        [name: 'checkoutservice', path: 'checkoutservice'],
+                        [name: 'currencyservice', path: 'currencyservice'],
+                        [name: 'emailservice', path: 'emailservice'],
+                        [name: 'frontend', path: 'frontend'],
+                        [name: 'loadgenerator', path: 'loadgenerator'],
+                        [name: 'paymentservice', path: 'paymentservice'],
+                        [name: 'productcatalogservice', path: 'productcatalogservice'],
+                        [name: 'recommendationservice', path: 'recommendationservice'],
+                        [name: 'shippingservice', path: 'shippingservice']
+                    ]
+
+                    // Build and push each service
+                    services.each { service ->
+                        buildAndPush(service.name, service.path)
+                    }
                 }
             }
         }
@@ -69,7 +85,7 @@ pipeline {
                              credentialsId: 'k8-token', 
                              namespace: 'webapps', 
                              restrictKubeConfigAccess: false,
-                             serverUrl: 'https://EBCE08CF45C3AA5A574E126370E5D4FC.gr7.ap-south-1.eks.amazonaws.com') {
+                             serverUrl: 'https://EBCE08CF45C3AA5A574E126370E5D4FC.gr7.ap-south-1.amazonaws.com') {
                     sh '''
                         kubectl apply -f kubernetes/namespace.yaml
                         kubectl apply -f kubernetes/
@@ -84,6 +100,7 @@ pipeline {
     post {
         always {
             cleanWs()
+            sh 'docker system prune -a -f'
         }
         success {
             echo 'Pipeline completed successfully!'
