@@ -6,7 +6,7 @@ pipeline {
     stages {
         stage('git checkout') {
             steps {
-                git branch: 'latest', url: 'https://github.com/mudit097/10-Tier-MicroService-Appliction.git'
+                git branch: 'latest', url: 'https://github.com/vikrantglober/10-tier-application-eks.git'
             }
         }
         stage('SonarQube') {
