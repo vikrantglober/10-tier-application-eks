@@ -1,8 +1,9 @@
+
 pipeline {
     agent any
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
-        AWS_ACCOUNT_ID = "your-aws-account-id"
+        AWS_ACCOUNT_ID = "084828580507"  
         AWS_REGION = "ap-south-1"
         ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
     }
@@ -17,7 +18,11 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('sonar') {
-                    sh '''$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectKey=10-Tier -Dsonar.ProjectName=10-Tier -Dsonar.java.binaries=.'''
+                    sh '''$SCANNER_HOME/bin/sonar-scanner \
+                        -Dsonar.projectKey=10-Tier \
+                        -Dsonar.ProjectName=10-Tier \
+                        -Dsonar.java.binaries=. \
+                        -Dsonar.sources=.'''
                 }
             }
         }
@@ -32,7 +37,7 @@ pipeline {
 
                     // Function to build and push
                     def buildAndPush = { serviceName ->
-                        dir("/var/lib/jenkins/workspace/10-Tier/src/${serviceName}") {
+                        dir("/var/lib/jenkins/workspace/10-tier-app/src/${serviceName}") {
                             sh """
                                 aws ecr create-repository --repository-name ${serviceName} --region ${AWS_REGION} || true
                                 docker build -t ${ECR_REGISTRY}/${serviceName}:latest .
@@ -43,17 +48,19 @@ pipeline {
                     }
 
                     // Build and push each service
-                    buildAndPush('adservice')
-                    buildAndPush('cartservice/src/')
-                    buildAndPush('checkoutservice')
-                    buildAndPush('currencyservice')
-                    buildAndPush('emailservice')
-                    buildAndPush('frontend')
-                    buildAndPush('loadgenerator')
-                    buildAndPush('paymentservice')
-                    buildAndPush('productcatalogservice')
-                    buildAndPush('recommendationservice')
-                    buildAndPush('shippingservice')
+                    ['adservice', 
+                     'cartservice/src/', 
+                     'checkoutservice', 
+                     'currencyservice', 
+                     'emailservice', 
+                     'frontend', 
+                     'loadgenerator', 
+                     'paymentservice', 
+                     'productcatalogservice', 
+                     'recommendationservice', 
+                     'shippingservice'].each { service ->
+                        buildAndPush(service)
+                    }
                 }
             }
         }
