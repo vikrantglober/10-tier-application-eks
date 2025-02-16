@@ -17,7 +17,11 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('sonar') {
-                    sh '''$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectKey=10-Tier -Dsonar.ProjectName=10-Tier -Dsonar.java.binaries=. -Dsonar.sources=.'''
+                    sh '''$SCANNER_HOME/bin/sonar-scanner \
+                        -Dsonar.projectKey=10-Tier \
+                        -Dsonar.ProjectName=10-Tier \
+                        -Dsonar.java.binaries=. \
+                        -Dsonar.sources=.'''
                 }
             }
         }
@@ -79,13 +83,40 @@ pipeline {
 
         stage('Deploy to EKS') {
             steps {
-              withKubeConfig([credentialsId: 'k8-token']) {
-            sh '''
-                kubectl apply -f k8s-manifestFiles/namespaces.yaml
-                kubectl apply -f k8s-manifestFiles/deployments
-                kubectl apply -f k8s-manifestFiles/services
-                kubectl get pods -n microservices
-            '''
+                withKubeConfig([credentialsId: 'k8-token']) {
+                    sh '''
+                        # Apply namespace first
+                        echo "Creating namespace..."
+                        kubectl apply -f k8s-manifestFiles/namespace.yaml
+                        
+                        # Wait for namespace to be active
+                        kubectl wait --for=condition=Active namespace/microservices --timeout=30s
+                        
+                        # Apply deployments
+                        echo "Applying deployments..."
+                        kubectl apply -R -f k8s-manifestFiles/deployments/
+                        
+                        # Apply services
+                        echo "Applying services..."
+                        kubectl apply -R -f k8s-manifestFiles/services/
+                        
+                        # Wait for deployments to be ready
+                        echo "Waiting for deployments to be ready..."
+                        kubectl wait --for=condition=available --timeout=300s -n microservices deployment --all
+                        
+                        # Show deployment status
+                        echo "Deployment Status:"
+                        kubectl get deployments -n microservices
+                        
+                        # Show pods status
+                        echo "Pod Status:"
+                        kubectl get pods -n microservices
+                        
+                        # Show services
+                        echo "Service Status:"
+                        kubectl get svc -n microservices
+                    '''
+                }
             }
         }
     }
@@ -93,7 +124,12 @@ pipeline {
     post {
         always {
             cleanWs()
-            sh 'docker system prune -a -f'
+            sh '''
+                echo "Cleaning up Docker resources..."
+                docker system prune -a -f
+                docker image prune -a -f
+                docker volume prune -f
+            '''
         }
         success {
             echo 'Pipeline completed successfully!'
