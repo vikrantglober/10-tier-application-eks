@@ -10,7 +10,7 @@ pipeline {
     stages {
         stage('git checkout') {
             steps {
-                git branch: 'latest', url: 'https://github.com/vikrantglober/10-tier-application-eks.git'
+                git branch: 'main', url: 'https://github.com/vikrantglober/10-tier-application-eks.git'
             }
         }
 
