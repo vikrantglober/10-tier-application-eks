@@ -1,9 +1,8 @@
-
 pipeline {
     agent any
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
-        AWS_ACCOUNT_ID = "084828580507"  
+        AWS_ACCOUNT_ID = "084828580507"
         AWS_REGION = "ap-south-1"
         ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
     }
@@ -18,11 +17,7 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('sonar') {
-                    sh '''$SCANNER_HOME/bin/sonar-scanner \
-                        -Dsonar.projectKey=10-Tier \
-                        -Dsonar.ProjectName=10-Tier \
-                        -Dsonar.java.binaries=. \
-                        -Dsonar.sources=.'''
+                    sh '''$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectKey=10-Tier -Dsonar.ProjectName=10-Tier -Dsonar.java.binaries=. -Dsonar.sources=.'''
                 }
             }
         }
@@ -36,31 +31,32 @@ pipeline {
                     """
 
                     // Function to build and push
-                    def buildAndPush = { serviceName ->
-                        dir("/var/lib/jenkins/workspace/10-tier-app/src/${serviceName}") {
+                    def buildAndPush = { serviceName, dockerfilePath ->
+                        // Clean repository name - remove slashes and replace with hyphens
+                        def cleanRepoName = serviceName.replaceAll('/', '-')
+                        
+                        dir("/var/lib/jenkins/workspace/10-tier-app/src/${dockerfilePath}") {
                             sh """
-                                aws ecr create-repository --repository-name ${serviceName} --region ${AWS_REGION} || true
-                                docker build -t ${ECR_REGISTRY}/${serviceName}:latest .
-                                docker push ${ECR_REGISTRY}/${serviceName}:latest
-                                docker rmi ${ECR_REGISTRY}/${serviceName}:latest
+                                aws ecr create-repository --repository-name ${cleanRepoName} --region ${AWS_REGION} || true
+                                docker build -t ${ECR_REGISTRY}/${cleanRepoName}:latest .
+                                docker push ${ECR_REGISTRY}/${cleanRepoName}:latest
+                                docker rmi ${ECR_REGISTRY}/${cleanRepoName}:latest
                             """
                         }
                     }
 
-                    // Build and push each service
-                    ['adservice', 
-                     'cartservice/src/', 
-                     'checkoutservice', 
-                     'currencyservice', 
-                     'emailservice', 
-                     'frontend', 
-                     'loadgenerator', 
-                     'paymentservice', 
-                     'productcatalogservice', 
-                     'recommendationservice', 
-                     'shippingservice'].each { service ->
-                        buildAndPush(service)
-                    }
+                    // Build and push each service with correct paths
+                    buildAndPush('adservice', 'adservice')
+                    buildAndPush('cartservice', 'cartservice/src')
+                    buildAndPush('checkoutservice', 'checkoutservice')
+                    buildAndPush('currencyservice', 'currencyservice')
+                    buildAndPush('emailservice', 'emailservice')
+                    buildAndPush('frontend', 'frontend')
+                    buildAndPush('loadgenerator', 'loadgenerator')
+                    buildAndPush('paymentservice', 'paymentservice')
+                    buildAndPush('productcatalogservice', 'productcatalogservice')
+                    buildAndPush('recommendationservice', 'recommendationservice')
+                    buildAndPush('shippingservice', 'shippingservice')
                 }
             }
         }
