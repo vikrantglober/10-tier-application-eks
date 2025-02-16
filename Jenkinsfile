@@ -79,20 +79,13 @@ pipeline {
 
         stage('Deploy to EKS') {
             steps {
-                withKubeConfig(caCertificate: '', 
-                             clusterName: 'my-eks2', 
-                             contextName: '',
-                             credentialsId: 'k8-token', 
-                             namespace: 'webapps', 
-                             restrictKubeConfigAccess: false,
-                             serverUrl: 'https://EBCE08CF45C3AA5A574E126370E5D4FC.gr7.ap-south-1.amazonaws.com') {
-                    sh '''
-                        kubectl apply -f kubernetes/namespace.yaml
-                        kubectl apply -f kubernetes/
-                        kubectl get pods -n webapps
-                        kubectl get svc -n webapps
-                    '''
-                }
+              withKubeConfig([credentialsId: 'k8-token']) {
+            sh '''
+                kubectl apply -f k8s-manifestFiles/namespaces.yaml
+                kubectl apply -f k8s-manifestFiles/deployments
+                kubectl apply -f k8s-manifestFiles/services
+                kubectl get pods -n microservices
+            '''
             }
         }
     }
