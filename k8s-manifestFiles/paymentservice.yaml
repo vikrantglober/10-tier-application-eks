@@ -41,7 +41,7 @@ spec:
               - ALL
           privileged: false
           readOnlyRootFilesystem: true
-        image: paymentservice
+        image: 084828580507.dkr.ecr.ap-south-1.amazonaws.com/paymentservice:latest
         ports:
         - containerPort: 50051
         env:
