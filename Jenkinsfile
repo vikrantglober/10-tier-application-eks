@@ -8,7 +8,7 @@ pipeline {
     }
 
     stages {
-        stage('git checkout') {
+        stage('Git Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/vikrantglober/10-tier-application-eks.git'
             }
@@ -45,7 +45,6 @@ pipeline {
 
                     // Function to build and push
                     def buildAndPush = { serviceName, dockerfilePath ->
-                        // Clean repository name - remove slashes and replace with hyphens
                         def cleanRepoName = serviceName.replaceAll('/', '-')
                         
                         dir("/var/lib/jenkins/workspace/10-tier-app/src/${dockerfilePath}") {
@@ -85,35 +84,42 @@ pipeline {
             steps {
                 withKubeConfig([credentialsId: 'k8-token',
                 serverUrl: 'https://E68B349E693BCEC6F716837AE3A0D6CB.gr7.ap-south-1.eks.amazonaws.com',
-		clusterName: 'my-eks2']
+                clusterName: 'my-eks2']
                 ) {
                     sh '''
-                        # Deploy Redis first
+                        # First clean up existing deployments
+                        echo "Cleaning up existing deployments..."
+                        kubectl delete deployment --all -n webapps
+                        sleep 20
+
+                        # Create namespace if it doesn't exist
+                        kubectl create namespace webapps --dry-run=client -o yaml | kubectl apply -f -
+                        
+                        # Deploy Redis first and wait for it
                         echo "Deploying Redis..."
-                        kubectl apply -f k8s-manifestFiles/redis.yaml -n webapps --validate=false -v=6
+                        kubectl apply -f k8s-manifestFiles/redis.yaml -n webapps
+                        kubectl rollout status deployment/redis -n webapps --timeout=180s
                         
-                        # Deploy core services
-                        echo "Deploying core services..."
-                        kubectl apply -f k8s-manifestFiles/adservice.yaml -n webapps
-                        kubectl apply -f k8s-manifestFiles/cartservice.yaml -n webapps
-                        kubectl apply -f k8s-manifestFiles/checkoutservice.yaml -n webapps
-                        kubectl apply -f k8s-manifestFiles/currencyservice.yaml -n webapps
-                        kubectl apply -f k8s-manifestFiles/emailservice.yaml -n webapps
-                        kubectl apply -f k8s-manifestFiles/paymentservice.yaml -n webapps
-                        kubectl apply -f k8s-manifestFiles/productcatalogservice.yaml -n webapps
-                        kubectl apply -f k8s-manifestFiles/recommendationservice.yaml -n webapps
-                        kubectl apply -f k8s-manifestFiles/shippingservice.yaml -n webapps
+                        # Deploy core services sequentially with waits
+                        for service in adservice cartservice checkoutservice currencyservice emailservice paymentservice productcatalogservice recommendationservice shippingservice; do
+                            echo "Deploying $service..."
+                            kubectl apply -f k8s-manifestFiles/$service.yaml -n webapps
+                            kubectl rollout status deployment/$service -n webapps --timeout=180s || true
+                            sleep 10
+                        done
                         
-                        # Deploy frontend and loadgenerator last
-                        echo "Deploying frontend and loadgenerator..."
+                        # Deploy frontend
+                        echo "Deploying frontend..."
                         kubectl apply -f k8s-manifestFiles/frontend.yaml -n webapps
+                        kubectl rollout status deployment/frontend -n webapps --timeout=180s || true
+                        sleep 10
+                        
+                        # Finally deploy loadgenerator
+                        echo "Deploying loadgenerator..."
                         kubectl apply -f k8s-manifestFiles/loadgenerator.yaml -n webapps
+                        kubectl rollout status deployment/loadgenerator -n webapps --timeout=180s || true
                         
-                        # Wait for deployments to be ready
-                        echo "Waiting for deployments to be ready..."
-                        kubectl wait --for=condition=available --timeout=300s -n webapps deployment --all
-                        
-                        # Show deployment status
+                        # Show final status
                         echo "Deployment Status:"
                         kubectl get deployments -n webapps
                         
@@ -122,6 +128,10 @@ pipeline {
                         
                         echo "Service Status:"
                         kubectl get svc -n webapps
+                        
+                        # Get detailed status of any failed pods
+                        echo "Detailed status of failed pods (if any):"
+                        kubectl get pods -n webapps | grep -v Running | grep -v Completed | awk '{print $1}' | xargs -I {} kubectl describe pod {} -n webapps || true
                     '''
                 }
             }
