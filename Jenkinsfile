@@ -83,9 +83,9 @@ pipeline {
 
         stage('Deploy to EKS') {
             steps {
-                withKubeConfig([credentialsId: 'k8-token'],
+                withKubeConfig([credentialsId: 'k8-token',
                 serverUrl: 'https://E68B349E693BCEC6F716837AE3A0D6CB.gr7.ap-south-1.eks.amazonaws.com',
-		clusterName: my-eks2
+		clusterName: my-eks2]
                 ) {
                     sh '''
                         # Deploy Redis first
