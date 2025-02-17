@@ -89,7 +89,7 @@ pipeline {
                     sh '''
                         # Deploy Redis first
                         echo "Deploying Redis..."
-                        kubectl apply -f k8s-manifestFiles/redis.yaml -n webapps
+                        kubectl apply -f k8s-manifestFiles/redis.yaml -n webapps --validate=false -v=6
                         
                         # Deploy core services
                         echo "Deploying core services..."
